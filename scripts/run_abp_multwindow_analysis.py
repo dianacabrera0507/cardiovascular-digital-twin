@@ -25,18 +25,18 @@ ABP_NAMES = {"ABP", "ART", "ARTERIAL", "AO"}
 POSITIONS = (0.05, 0.25, 0.50, 0.75)
 
 SEGMENT_COLUMNS = [
-    "segment_code", "sampling_hz", "total_samples", "duration_minutes",
-    "abp_channel_name", "windows_requested",
+    "patient_code", "segment_code", "sampling_hz", "total_samples",
+    "duration_minutes", "abp_channel_name", "windows_requested",
 ]
 WINDOW_COLUMNS = [
-    "segment_code", "window_number", "start_seconds", "sampling_hz",
+    "patient_code", "segment_code", "window_number", "start_seconds", "sampling_hz",
     "finite_fraction", "median_mmhg", "p05_mmhg", "p95_mmhg",
     "robust_amplitude_mmhg", "quality_candidate", "n_peaks",
     "n_plausible_beats", "n_tau_accepted", "tau_median_s",
     "analysis_status", "error_type",
 ]
 BEAT_COLUMNS = [
-    "segment_code", "window_number", "beat", "heart_rate_bpm",
+    "patient_code", "segment_code", "window_number", "beat", "heart_rate_bpm",
     "systolic_mmhg", "diastolic_mmhg", "pulse_pressure_mmhg",
     "tau_seconds", "r_squared", "rmse_mmhg", "samples_used", "success",
     "acceptable_fit", "fit_error",
@@ -46,6 +46,17 @@ BEAT_COLUMNS = [
 def anonymous_code(header_path: Path, waves_root: Path) -> str:
     relative_name = header_path.relative_to(waves_root).as_posix()
     return hashlib.sha256(relative_name.encode("utf-8")).hexdigest()[:12]
+
+
+
+def patient_code(header_path: Path, waves_root: Path) -> str:
+    """Create a stable anonymous patient-level grouping code."""
+    relative_parts = header_path.relative_to(waves_root).parts
+    patient_part = next(
+        (part for part in relative_parts if part.lower().startswith("p") and part[1:].isdigit()),
+        relative_parts[0],
+    )
+    return hashlib.sha256(patient_part.encode("utf-8")).hexdigest()[:12]
 
 
 def find_abp_index(signal_names: list[str]) -> int | None:
@@ -75,6 +86,7 @@ def quality_is_acceptable(summary: dict[str, float]) -> bool:
 def analyze_window(
     signal: np.ndarray,
     sampling_hz: float,
+    patient_code_value: str,
     segment_code: str,
     window_number: int,
     start_sample: int,
@@ -83,6 +95,7 @@ def analyze_window(
 ) -> tuple[dict[str, object], list[dict[str, object]]]:
     summary = summarize_abp_window(signal)
     window_row: dict[str, object] = {
+        "patient_code": patient_code_value,
         "segment_code": segment_code,
         "window_number": window_number,
         "start_seconds": start_sample / sampling_hz,
@@ -122,6 +135,7 @@ def analyze_window(
     beat_rows: list[dict[str, object]] = []
     for beat in plausible_beats:
         beat_row: dict[str, object] = {
+            "patient_code": patient_code_value,
             "segment_code": segment_code,
             "window_number": window_number,
             "beat": beat["beat"],
@@ -179,7 +193,7 @@ def run_analysis(
     windows: list[dict[str, object]] = []
     beats: list[dict[str, object]] = []
     reviewed = loaded = skipped_headers = errors = 0
-    for header_path in waves_root.rglob("*.hea"):
+    for header_path in sorted(waves_root.rglob("*.hea")):
         if reviewed >= maximum_segments:
             break
         try:
@@ -204,8 +218,10 @@ def run_analysis(
             window_samples = min(total_samples, requested_samples)
             starts = calculate_starts(total_samples, window_samples)
             segment_code = anonymous_code(header_path, waves_root)
+            patient_code_value = patient_code(header_path, waves_root)
             reviewed += 1
             segments.append({
+                "patient_code": patient_code_value,
                 "segment_code": segment_code,
                 "sampling_hz": sampling_hz,
                 "total_samples": total_samples,
@@ -225,6 +241,7 @@ def run_analysis(
                     window_row, beat_rows = analyze_window(
                         signal=signal,
                         sampling_hz=sampling_hz,
+                        patient_code_value=patient_code_value,
                         segment_code=segment_code,
                         window_number=number,
                         start_sample=start,
@@ -236,6 +253,7 @@ def run_analysis(
                 except Exception as error:
                     errors += 1
                     windows.append({
+                        "patient_code": patient_code_value,
                         "segment_code": segment_code,
                         "window_number": number,
                         "start_seconds": start / sampling_hz,
@@ -255,6 +273,7 @@ def run_analysis(
     tau_window_count = int((window_table["analysis_status"] == "tau_available").sum())
     accepted = beat_table[beat_table["acceptable_fit"].fillna(False).astype(bool)]
     print("Analisis terminado.")
+    print("Pacientes anonimos revisados:", segment_table["patient_code"].nunique())
     print("Segmentos revisados:", reviewed)
     print("Ventanas cargadas:", loaded)
     print("Encabezados omitidos:", skipped_headers)
