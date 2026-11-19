@@ -1,0 +1,16 @@
+name: cardiovascular-digital-twin
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - scipy
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - pyyaml
+  - statsmodels
+  - pytest
+  - pip
+  - pip:
+      - wfdb>=4.1

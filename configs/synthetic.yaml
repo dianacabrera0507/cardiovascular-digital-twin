@@ -1,0 +1,10 @@
+simulation:
+  duration_seconds: 120
+  sampling_hz: 100
+  resistance: 1.2
+  compliance: 1.5
+  venous_pressure: 5.0
+  heart_rate_bpm: 72
+  inflow_amplitude: 60.0
+  noise_std: 0.5
+  missing_fraction: 0.0

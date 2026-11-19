@@ -1,0 +1,4 @@
+variable_name,source_table_or_signal,unit,sampling_type,availability_time,role,transformation,missing_data_rule,quality_rule,status
+subject_id,pending,NA,identifier,baseline,grouping,none,exclude_if_missing,valid_identifier,pending_audit
+arterial_pressure,pending,mmHg,continuous,pending,candidate_signal,pending,pending,pending,pending_audit
+map,pending,mmHg,continuous_or_intermittent,pending,outcome_or_predictor,pending,pending,pending,pending_audit

@@ -1,0 +1,57 @@
+project:
+  seed: 2026
+  timezone: UTC
+  output_dir: outputs
+
+data:
+  source: pending_audit
+  raw_dir: data/raw
+  interim_dir: data/interim
+  processed_dir: data/processed
+  synthetic_dir: data/synthetic
+
+signals:
+  candidate_channels: [ABP, ECG, PPG, HR, RR, SpO2, NBP]
+  target_sampling_hz: null
+  minimum_window_seconds: null
+  missingness_limit: null
+
+cohort:
+  unit_of_analysis: pending_protocol
+  minimum_record_duration_minutes: null
+  multiple_admissions_policy: pending_protocol
+  multiple_events_policy: pending_protocol
+
+hypotension:
+  primary_measure: MAP
+  threshold_mmhg: null
+  minimum_duration_minutes: null
+  merge_gap_minutes: null
+  prediction_horizons_minutes: []
+  exclusion_gap_minutes: null
+
+windkessel:
+  model: two_element
+  pressure_initial_mmhg: 80.0
+  resistance_initial: 1.0
+  compliance_initial: 1.0
+  venous_pressure_mmhg: 5.0
+  enforce_positive_parameters: true
+
+estimation:
+  method: scipy_least_squares
+  n_initializations: 10
+  temporal_regularization: 0.0
+  estimate_uncertainty: true
+
+validation:
+  split_level: patient
+  test_fraction: 0.20
+  validation_fraction: 0.20
+  random_seed: 2026
+  bootstrap_unit: patient
+
+reporting:
+  save_figures: true
+  save_metrics: true
+  save_config_snapshot: true

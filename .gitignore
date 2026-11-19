@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Secretos y credenciales
+.env
+*.key
+*.pem
+credentials*
+
+# Datos: no confirmar datos clínicos o derivados restringidos
+data/raw/**
+data/interim/**
+data/processed/**
+!data/raw/README.md
+!data/interim/README.md
+!data/processed/README.md
+
+# Resultados reproducibles, salvo marcadores
+outputs/**
+!outputs/README.md
+
+# Modelos pesados
+*.pt
+*.pth
+*.ckpt
+*.joblib
+
+# Jupyter
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# Copias de seguridad locales
+backups/
+
+# Archivos temporales y registros
+*.log
+*.tmp
+~$*
+
+# Material local, restringido o heredado
+local_private/
+
+# Metadatos generados por instalaciones editables
+*.egg-info/
+
+# Imagen local no utilizada
+docs/images/clipboard-326789703.png
