@@ -18,12 +18,32 @@ def test_short_episode_is_rejected():
     assert threshold_episodes(time, values, 65.0, 60.0) == []
 
 
-def test_episodes_merge_across_prespecified_gap():
+def test_two_short_runs_cannot_form_valid_event_after_merging():
     time = np.arange(0.0, 181.0)
     values = np.full(time.shape, 80.0)
     values[20:50] = 60.0
     values[70:100] = 60.0
-    assert threshold_episodes(time, values, 65.0, 60.0, merge_gap=20.0) == [(20, 100)]
+    assert threshold_episodes(
+        time,
+        values,
+        65.0,
+        60.0,
+        merge_gap=20.0,
+    ) == []
+
+
+def test_valid_runs_merge_across_prespecified_gap():
+    time = np.arange(0.0, 241.0)
+    values = np.full(time.shape, 80.0)
+    values[20:80] = 60.0
+    values[100:160] = 60.0
+    assert threshold_episodes(
+        time,
+        values,
+        65.0,
+        60.0,
+        merge_gap=20.0,
+    ) == [(20, 160)]
 
 
 def test_nonfinite_value_interrupts_episode():
@@ -36,11 +56,11 @@ def test_nonfinite_value_interrupts_episode():
     ]
 
 
-def test_nonfinite_interruption_prevents_short_runs_from_passing():
-    time = np.arange(0.0, 120.0)
+def test_nonfinite_interruption_prevents_short_run_from_passing():
+    time = np.arange(0.0, 119.0)
     values = np.full(time.shape, 60.0)
     values[59] = np.nan
-    assert threshold_episodes(time, values, 65.0, 60.0) == [(60, 120)]
+    assert threshold_episodes(time, values, 65.0, 60.0) == []
 
 
 def test_prediction_intervals_are_leakage_safe():

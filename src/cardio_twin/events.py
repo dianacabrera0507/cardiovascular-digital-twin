@@ -18,10 +18,19 @@ def _validate_series(time: np.ndarray, values: np.ndarray) -> tuple[np.ndarray, 
     return time_array, value_array
 
 
-def _sample_interval_seconds(time: np.ndarray) -> float:
+def _sample_interval(time: np.ndarray) -> float:
     if time.size < 2:
         return 0.0
     return float(np.median(np.diff(time)))
+
+
+def _interval_duration(
+    time: np.ndarray,
+    start: int,
+    end: int,
+    sample_interval: float,
+) -> float:
+    return float(time[end - 1] - time[start] + sample_interval)
 
 
 def threshold_episodes(
@@ -31,12 +40,14 @@ def threshold_episodes(
     minimum_duration: float,
     merge_gap: float = 0.0,
 ) -> list[tuple[int, int]]:
-    """Return half-open intervals ``[start, end)`` below ``threshold``.
+    """Return valid hypotension intervals as half-open indices ``[start, end)``.
 
-    Durations and merge gaps use the same time unit as ``time``. Non-finite
-    values are not hypotensive and interrupt an episode. Candidate runs are
-    merged when the elapsed gap between runs is no greater than ``merge_gap``.
-    The minimum-duration rule is applied after merging.
+    Each uninterrupted run below ``threshold`` must independently satisfy
+    ``minimum_duration`` before merging. Valid runs are then merged when the
+    elapsed interruption is no greater than ``merge_gap``. Non-finite values
+    interrupt a run and never contribute to its duration.
+
+    Durations and gaps use the same time unit as ``time``.
     """
     time_array, value_array = _validate_series(time, values)
     if not np.isfinite(threshold):
@@ -53,22 +64,33 @@ def threshold_episodes(
     if starts.size == 0:
         return []
 
-    merged: list[list[int]] = [[int(starts[0]), int(ends[0])]]
-    sample_interval = _sample_interval_seconds(time_array)
-    for start, end in zip(starts[1:], ends[1:]):
-        previous_end = merged[-1][1]
-        gap = float(time_array[int(start)] - time_array[previous_end - 1] - sample_interval)
-        if gap <= merge_gap + np.finfo(float).eps:
-            merged[-1][1] = int(end)
-        else:
-            merged.append([int(start), int(end)])
+    sample_interval = _sample_interval(time_array)
+    valid_runs = [
+        (int(start), int(end))
+        for start, end in zip(starts, ends)
+        if _interval_duration(
+            time_array,
+            int(start),
+            int(end),
+            sample_interval,
+        ) >= minimum_duration
+    ]
+    if not valid_runs:
+        return []
 
-    episodes: list[tuple[int, int]] = []
-    for start, end in merged:
-        duration = float(time_array[end - 1] - time_array[start] + sample_interval)
-        if duration >= minimum_duration:
-            episodes.append((start, end))
-    return episodes
+    merged: list[list[int]] = [[valid_runs[0][0], valid_runs[0][1]]]
+    for start, end in valid_runs[1:]:
+        previous_end = merged[-1][1]
+        gap = float(
+            time_array[start]
+            - time_array[previous_end - 1]
+            - sample_interval
+        )
+        if gap <= merge_gap + np.finfo(float).eps:
+            merged[-1][1] = end
+        else:
+            merged.append([start, end])
+    return [(int(start), int(end)) for start, end in merged]
 
 
 def prediction_intervals(
@@ -77,15 +99,14 @@ def prediction_intervals(
     exclusion_gap_seconds: float,
     prediction_horizon_seconds: float,
 ) -> dict[str, tuple[float, float]]:
-    """Construct leakage-safe predictor, gap, and outcome intervals.
-
-    The outcome interval ends at the event onset and spans the prespecified
-    prediction horizon. The predictor interval ends before the exclusion gap.
-    All intervals are half-open.
-    """
+    """Construct leakage-safe predictor, gap, and outcome intervals."""
     values = np.asarray(
-        [event_start_seconds, predictor_window_seconds, exclusion_gap_seconds,
-         prediction_horizon_seconds],
+        [
+            event_start_seconds,
+            predictor_window_seconds,
+            exclusion_gap_seconds,
+            prediction_horizon_seconds,
+        ],
         dtype=float,
     )
     if not np.isfinite(values).all():
