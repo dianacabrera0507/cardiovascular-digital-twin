@@ -4,31 +4,56 @@ project:
   output_dir: outputs
 
 data:
-  source: pending_audit
+  source: mimic_iv_waveform
   raw_dir: data/raw
   interim_dir: data/interim
   processed_dir: data/processed
   synthetic_dir: data/synthetic
 
 signals:
-  candidate_channels: [ABP, ECG, PPG, HR, RR, SpO2, NBP]
+  candidate_channels:
+    - ABP
+    - ECG
+    - PPG
+    - HR
+    - RR
+    - SpO2
+    - NBP
   target_sampling_hz: null
-  minimum_window_seconds: null
-  missingness_limit: null
+  minimum_window_seconds: 30
+  missingness_limit: 0.01
 
 cohort:
-  unit_of_analysis: pending_protocol
+  unit_of_analysis: patient
   minimum_record_duration_minutes: null
-  multiple_admissions_policy: pending_protocol
-  multiple_events_policy: pending_protocol
+  maximum_segments_per_patient: 2
+  multiple_admissions_policy: keep_first_eligible_admission
+  multiple_events_policy: keep_non_overlapping_events
+  split_level: patient
 
 hypotension:
   primary_measure: MAP
-  threshold_mmhg: null
-  minimum_duration_minutes: null
-  merge_gap_minutes: null
-  prediction_horizons_minutes: []
-  exclusion_gap_minutes: null
+  primary_source: invasive_abp
+  threshold_mmhg: 65
+  minimum_duration_seconds: 60
+  merge_gap_seconds: 60
+
+  predictor_window_minutes: 5
+  exclusion_gap_minutes: 5
+  prediction_horizons_minutes:
+    - 15
+
+  sensitivity_thresholds_mmhg:
+    - 60
+    - 70
+
+  sensitivity_minimum_durations_seconds:
+    - 10
+    - 300
+
+  event_interval: half_open
+  require_finite_map: true
+  temporal_leakage_allowed: false
 
 windkessel:
   model: two_element
@@ -37,6 +62,26 @@ windkessel:
   compliance_initial: 1.0
   venous_pressure_mmhg: 5.0
   enforce_positive_parameters: true
+
+diastolic_tau:
+  primary_venous_pressure_mmhg: 5.0
+  primary_fit_start_fraction: 0.35
+  acceptable_tau_min_seconds: 0.20
+  acceptable_tau_max_seconds: 5.00
+  minimum_r_squared: 0.90
+  maximum_rmse_mmhg: 2.50
+
+  sensitivity_venous_pressures_mmhg:
+    - 0
+    - 5
+    - 10
+    - 15
+
+  sensitivity_fit_start_fractions:
+    - 0.25
+    - 0.35
+    - 0.45
+    - 0.55
 
 estimation:
   method: scipy_least_squares
@@ -50,8 +95,12 @@ validation:
   validation_fraction: 0.20
   random_seed: 2026
   bootstrap_unit: patient
+  bootstrap_repetitions: 10000
 
 reporting:
   save_figures: true
   save_metrics: true
   save_config_snapshot: true
+  report_patient_level_results: true
+  report_window_level_results_as_secondary: true
+  report_beat_level_results_as_descriptive: true
