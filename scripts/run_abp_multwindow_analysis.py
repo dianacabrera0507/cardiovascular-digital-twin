@@ -52,10 +52,12 @@ def anonymous_code(header_path: Path, waves_root: Path) -> str:
 def patient_code(header_path: Path, waves_root: Path) -> str:
     """Create a stable anonymous patient-level grouping code."""
     relative_parts = header_path.relative_to(waves_root).parts
-    patient_part = next(
-        (part for part in relative_parts if part.lower().startswith("p") and part[1:].isdigit()),
-        relative_parts[0],
-    )
+    patient_parts = [
+        part
+        for part in relative_parts
+        if part.lower().startswith("p") and part[1:].isdigit()
+    ]
+    patient_part = patient_parts[-1] if patient_parts else relative_parts[0]
     return hashlib.sha256(patient_part.encode("utf-8")).hexdigest()[:12]
 
 
@@ -181,6 +183,7 @@ def run_analysis(
     root: Path,
     output_dir: Path,
     maximum_segments: int,
+    maximum_segments_per_patient: int,
     window_seconds: float,
     venous_pressure: float,
     fit_fraction: float,
@@ -193,6 +196,7 @@ def run_analysis(
     windows: list[dict[str, object]] = []
     beats: list[dict[str, object]] = []
     reviewed = loaded = skipped_headers = errors = 0
+    patient_segment_counts: dict[str, int] = {}
     for header_path in sorted(waves_root.rglob("*.hea")):
         if reviewed >= maximum_segments:
             break
@@ -219,6 +223,10 @@ def run_analysis(
             starts = calculate_starts(total_samples, window_samples)
             segment_code = anonymous_code(header_path, waves_root)
             patient_code_value = patient_code(header_path, waves_root)
+            current_patient_count = patient_segment_counts.get(patient_code_value, 0)
+            if current_patient_count >= maximum_segments_per_patient:
+                continue
+            patient_segment_counts[patient_code_value] = current_patient_count + 1
             reviewed += 1
             segments.append({
                 "patient_code": patient_code_value,
@@ -275,6 +283,7 @@ def run_analysis(
     print("Analisis terminado.")
     print("Pacientes anonimos revisados:", segment_table["patient_code"].nunique())
     print("Segmentos revisados:", reviewed)
+    print("Maximo de segmentos por paciente:", maximum_segments_per_patient)
     print("Ventanas cargadas:", loaded)
     print("Encabezados omitidos:", skipped_headers)
     print("Errores registrados:", errors)
@@ -295,6 +304,7 @@ def run_analysis(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analisis multiventana ABP.")
     parser.add_argument("--maximum-segments", type=int, default=25)
+    parser.add_argument("--maximum-segments-per-patient", type=int, default=2)
     parser.add_argument("--window-seconds", type=float, default=30.0)
     parser.add_argument("--venous-pressure-mmhg", type=float, default=5.0)
     parser.add_argument("--fit-start-fraction", type=float, default=0.35)
@@ -305,6 +315,8 @@ def main() -> None:
     args = parse_args()
     if args.maximum_segments <= 0:
         raise ValueError("--maximum-segments debe ser positivo.")
+    if args.maximum_segments_per_patient <= 0:
+        raise ValueError("--maximum-segments-per-patient debe ser positivo.")
     if args.window_seconds <= 0:
         raise ValueError("--window-seconds debe ser positivo.")
     if not 0.0 <= args.fit_start_fraction < 1.0:
@@ -321,6 +333,7 @@ def main() -> None:
         root=root,
         output_dir=output_dir,
         maximum_segments=args.maximum_segments,
+        maximum_segments_per_patient=args.maximum_segments_per_patient,
         window_seconds=args.window_seconds,
         venous_pressure=args.venous_pressure_mmhg,
         fit_fraction=args.fit_start_fraction,
