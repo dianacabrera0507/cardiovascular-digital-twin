@@ -308,6 +308,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window-seconds", type=float, default=30.0)
     parser.add_argument("--venous-pressure-mmhg", type=float, default=5.0)
     parser.add_argument("--fit-start-fraction", type=float, default=0.35)
+    parser.add_argument(
+        "--output-label",
+        type=str,
+        default="baseline",
+        help="Etiqueta segura para separar resultados locales.",
+    )
     return parser.parse_args()
 
 
@@ -321,6 +327,8 @@ def main() -> None:
         raise ValueError("--window-seconds debe ser positivo.")
     if not 0.0 <= args.fit_start_fraction < 1.0:
         raise ValueError("--fit-start-fraction debe estar entre 0 y 1.")
+    if not args.output_label.replace("_", "").replace("-", "").isalnum():
+        raise ValueError("--output-label solo admite letras, numeros, guion y guion bajo.")
     root_value = os.environ.get("MIMIC_WAVEFORM_ROOT")
     if not root_value:
         raise EnvironmentError("Debe configurar MIMIC_WAVEFORM_ROOT.")
@@ -328,7 +336,7 @@ def main() -> None:
     if not root.exists():
         raise FileNotFoundError("MIMIC_WAVEFORM_ROOT no existe.")
     project_root = Path(__file__).resolve().parents[1]
-    output_dir = project_root / "outputs" / "abp_multwindow"
+    output_dir = project_root / "outputs" / "abp_sensitivity" / args.output_label
     run_analysis(
         root=root,
         output_dir=output_dir,
