@@ -55,3 +55,10 @@ local_private/
 
 # Imagen local no utilizada
 docs/images/clipboard-326789703.png
+
+# Archivos locales de Jupyter y Anaconda
+.virtual_documents/
+anaconda_projects/
+
+# Notebooks accidentales guardados en la raiz
+/02_abp_preprocessing.ipynb
