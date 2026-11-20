@@ -132,7 +132,7 @@ def sensitivity_figure(sensitivity: pd.DataFrame, output_dir: Path) -> None:
     ax.set_ylabel("Median patient-level effective tau (s)")
     ax.set_title("Sensitivity of effective tau to venous pressure and fit-start assumptions")
     ax.grid(alpha=0.25)
-    ax.legend(frameon=False, ncol=2)
+    ax.legend(loc='upper left', bbox_to_anchor=(1.02, 1.0), borderaxespad=0.0, frameon=False, ncol=1)
     save_figure(fig, output_dir / "figure_s1_tau_sensitivity")
 
 
